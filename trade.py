@@ -91,11 +91,11 @@ def request_listings() -> None:
             well_worn = item['wear_name'] == 'Well-Worn'
             souvenir = item['is_souvenir'] == 'true'
             # Filter well-worn skins
-            if WELL_WORNS is not False:
+            if WELL_WORNS is False:
                 if well_worn:
                     fits_skin_reqs = False
             # Filter souvenir skins
-            if SOUVENIRS is not False:
+            if SOUVENIRS is False:
                 if souvenir:
                     fits_skin_reqs = False
         # Add to interested listings if all reqs are met
