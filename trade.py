@@ -180,7 +180,7 @@ def check_is_interesting_listing(listing):
         # Calculate discount %
         difference = (1 - (listing_price / item_price)) * 100
         # Set to deal if discount % is high enough
-        if difference > MINIMUM_DISCOUNT:
+        if difference > MINIMUM_DISCOUNT and item_price > MINIMUM_PRICE:
             is_deal = True
     if is_deal:
         # Check if desired skin
