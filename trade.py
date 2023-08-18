@@ -206,7 +206,7 @@ def check_is_interesting_listing(listing):
 def exit_handler():
     """Give user option to check auctions while the bot is off."""
     check_offline_auctions = input(
-        '\nDo you want me to check upcoming'
+        '\nDo you want me to check upcoming '
         'auctions while you are away? (yes, no): ')
     if check_offline_auctions.lower() == "yes":
         hours = input('\nHow many hours will you be away?: ')
