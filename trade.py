@@ -4,24 +4,29 @@ __version__ = '1.0.1'
 
 import schedule
 import time
+from datetime import datetime
 from helpers import create_session, get_single_email_info, \
-    get_multiple_email_info, printf, send_email
+    get_multiple_email_info, printf, send_email, get_auction_email_info
+
+# Change auction interval to minutes
 
 # Settings
 # Guns to search for (★ = knives & guns)
-ALLOWED_GUNS = ['AWP', 'AK-47', 'M4A1-S', 'M4A4', 'USP-S', '★']
+ALLOWED_GUNS = ['AWP', 'AK-47', 'M4A1-S', 'M4A4', 'Desert Eagle', 'USP-S', '★']
 MINIMUM_PRICE = 1000  # Minimum price of skins (in cents)
 MAXIMUM_PRICE = 50000  # Maximum price of skins (in cents)
-MINIMUM_DISCOUNT = 1  # Minium percent discount from Steam Market price
-REQUEST_INTERVAL = 31  # Interval (in seconds) to request skin listings
-REQUEST_CHECKPOINT = 100  # Number of requests before user is updated
+MINIMUM_DISCOUNT = 24  # Minium percent discount from Steam Market price
+REQUEST_INTERVAL = 24  # Interval (in seconds) to request skin listings
+REQUEST_CHECKPOINT = 75  # Number of requests before user is updated
 REQUEST_LIMIT = 20  # Number of listings to API request (after initial)
+AUCTION_REQUEST_INTERVAL = 50  # Interval to check auctions (in minutes)
+AUCTION_REQUEST_HOURS = 1  # Hours to check out for auction listings
 WELL_WORNS = False  # Include well-worn skins
 SOUVENIRS = False  # Include souvenir skins
 RECIPIENT_EMAILS = ['jackfarrell860@gmail.com']  # Emails to send updates to
 
 interested_listings = []  # Track the sessions listings the bot finds
-# Track the floats of interested listings (to avoid catching relistings)
+# Track the floats of interested listings (to catch relistings)
 interested_listings_floats = []
 # Give the user periodic updates on the session
 session_information = {'Requests': 0, 'Deals': 0}
@@ -29,16 +34,24 @@ session_information = {'Requests': 0, 'Deals': 0}
 
 def main() -> None:
     """Request CSfloat API at a given interval."""
-    schedule.every(REQUEST_INTERVAL).seconds.do(request_listings)
-    request_listings()  # Send initial request
-    # Request perpetually
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+    try:
+        "You can press CTRL + C at any point to close the program."
+        schedule.every(REQUEST_INTERVAL).seconds.do(request_listings)
+        schedule.every(AUCTION_REQUEST_INTERVAL).minutes.do(request_auctions)
+        # Send initial request
+        request_listings()
+        request_auctions()
+        # Request perpetually
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
+    except KeyboardInterrupt:
+        exit_handler()
+        print('Goodbye!')
 
 
 def request_listings() -> None:
-    """Request skins from CSfloat."""
+    """Request skin listings from CSfloat."""
     # Record number of interests before this request
     initial_interest_count = len(interested_listings)
     # Initial message to user
@@ -53,7 +66,7 @@ def request_listings() -> None:
         printf(f"{REQUEST_CHECKPOINT} requests completed. Total number of "
                "potential deals identified so far "
                f"is {session_information['Deals']}")
-    # Get listing Data
+    # Get listing data
     session = create_session()
     base_url = 'https://csfloat.com/api/v1/listings?type=buy_now'
     # Don't include request limit on first request
@@ -130,6 +143,74 @@ def request_listings() -> None:
     subject = email_info['subject']
     body = email_info['body']
     send_email(subject, body, RECIPIENT_EMAILS)
+    return
+
+
+def request_auctions(hours: int = AUCTION_REQUEST_HOURS) -> None:
+    """Check auction listings"""
+    expiring_auctions = []
+    # Get listing data
+    session = create_session()
+    url = ('https://csfloat.com/api/v1/listings?type=auction'
+           '&sort_by=expires_soon')
+    response = session.get(url)
+    listings = response.json()
+    # Filter listings
+    for listing in listings:
+        # Check if listing expires within given timeframe
+        expires_at = listing['auction_details']['expires_at']
+        expires_at = datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+        current_time = datetime.utcnow()
+        difference = expires_at - current_time
+        if difference.total_seconds() > (hours * 3600):
+            break
+        # Assume listing is not a deal and does not fit skin requirements
+        deal = False
+        fits_skin_reqs = False
+        listing_price = listing.get('price')  # Price on CSfloat
+        item = listing.get('item')
+        item_price = item['scm'].get('price')  # Price on Steam
+        item_name = item['market_hash_name']
+        if item_price > listing_price:
+            # Calculate discount %
+            difference = (1 - (listing_price / item_price)) * 100
+            # Set to deal if discount % is high enough
+            if difference > MINIMUM_DISCOUNT:
+                deal = True
+        # Filter guns by desired guns
+        for allowed_gun in ALLOWED_GUNS:
+            if allowed_gun in item_name:
+                fits_skin_reqs = True
+        # Filter out any well-worns or souvenirs if requested
+        if fits_skin_reqs:
+            well_worn = item['wear_name'] == 'Well-Worn'
+            souvenir = item['is_souvenir'] == 'true'
+            # Filter well-worn skins
+            if WELL_WORNS is False:
+                if well_worn:
+                    fits_skin_reqs = False
+            # Filter souvenir skins
+            if SOUVENIRS is False:
+                if souvenir:
+                    fits_skin_reqs = False
+            if fits_skin_reqs and deal:
+                expiring_auctions.append(listing)
+    if len(expiring_auctions) > 0:
+        email_info = get_auction_email_info(expiring_auctions)
+        # Send the email
+        subject = email_info['subject']
+        body = email_info['body']
+        send_email(subject, body, RECIPIENT_EMAILS)
+        return
+    return
+
+
+def exit_handler():
+    check_offline_auctions = input(
+        'Do you want me to check upcoming auctions while you are away? (yes,no): ')
+    if check_offline_auctions.lower() == "yes":
+        hours = input('How many hours will you be away?: ')
+        request_auctions(int(hours))
     return
 
 

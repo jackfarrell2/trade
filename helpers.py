@@ -46,6 +46,28 @@ def get_single_email_info(listing: dict) -> dict:
     return email_info
 
 
+def get_auction_email_info(listings: list) -> dict:
+    """Format an email to alert auctions found"""
+    subject = "Interesting Auction(s) Identified"
+    body = ("Beep Boop,\n\nI identified one or more potential auctions "
+            "that you may be interested in.\n\n")
+    for listing in listings:
+        listing_name = listing.get('item')['market_hash_name']
+        pricempire_link = get_pricempire_link(listing_name)
+        # Strip odd characters for email subject & body
+        listing_name = listing_name.replace('★ ', '')
+        listing_name = listing_name.replace('™', '')
+        # Create CSfloat link for item
+        listing_id = listing.get('id')
+        listing_string = (f'-\n\n{listing_name}: https://csfloat.com/'
+                          f'item/{listing_id}\n\n')
+        body = body + listing_string + pricempire_link
+    body = body + "\nBest,\nJack's Bot <3"
+    print("Potential auction(s) identified. Sending email out.")
+    email_info = {'subject': subject, 'body': body}
+    return email_info
+
+
 def get_multiple_email_info(listings: list) -> dict:
     """Format an email for multiple new listings."""
     subject = 'Multiple Potential Deals Identified'
