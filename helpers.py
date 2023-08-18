@@ -4,25 +4,16 @@ from datetime import datetime
 import smtplib
 
 
-def send_email(subject: str, body: str, recipients: list) -> None:
-    """Send an email to desired users."""
-    with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
-        # Establish secure connection
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.ehlo()
-        # Login
-        smtp.login('jackcsgotrading@gmail.com', 'semerhfciausaemm')
-        # Send email
-        msg = f'Subject: {subject}\n\n{body}'
-        for email in recipients:
-            smtp.sendmail('jackcsgotrading@gmail.com', email, msg)
-
-
-def create_session():
-    """Create a session to make API requests."""
-    s = requests.Session()
-    return s
+def check_is_in_timeframe(expiration, hours):
+    """Check if auction listing is in a given time frame."""
+    datetime_expiration = datetime.strptime(
+        expiration, "%Y-%m-%dT%H:%M:%S.%fZ")
+    current_time = datetime.utcnow()
+    difference = datetime_expiration - current_time
+    if difference.total_seconds() > (hours * 3600):
+        return False
+    else:
+        return True
 
 
 def get_single_email_info(listing: dict) -> dict:
@@ -47,7 +38,7 @@ def get_single_email_info(listing: dict) -> dict:
 
 
 def get_auction_email_info(listings: list) -> dict:
-    """Format an email to alert auctions found"""
+    """Format an email to alert auctions found."""
     subject = "Interesting Auction(s) Identified"
     body = ("Beep Boop,\n\nI identified one or more potential auctions "
             "that you may be interested in.\n\n")
@@ -105,6 +96,27 @@ def get_pricempire_link(name: str) -> str:
     link = ("You may be able to check a target price here: "
             f"https://pricempire.com/item/csgo/skin/{name}\n\n")
     return link
+
+
+def send_email(subject: str, body: str, recipients: list) -> None:
+    """Send an email to desired users."""
+    with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+        # Establish secure connection
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
+        # Login
+        smtp.login('jackcsgotrading@gmail.com', 'semerhfciausaemm')
+        # Send email
+        msg = f'Subject: {subject}\n\n{body}'
+        for email in recipients:
+            smtp.sendmail('jackcsgotrading@gmail.com', email, msg)
+
+
+def create_session():
+    """Create a session to make API requests."""
+    s = requests.Session()
+    return s
 
 
 def printf(*arg, **kwarg) -> None:

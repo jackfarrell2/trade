@@ -4,27 +4,25 @@ __version__ = '1.0.1'
 
 import schedule
 import time
-from datetime import datetime
 from helpers import create_session, get_single_email_info, \
-    get_multiple_email_info, printf, send_email, get_auction_email_info
-
-# Change auction to query for multiple pages if necessary
-# Clean up functions, create helpers
+    get_multiple_email_info, printf, send_email, get_auction_email_info, \
+    check_is_in_timeframe
 
 # Settings
 # Guns to search for (★ = knives & guns)
 ALLOWED_GUNS = ['AWP', 'AK-47', 'M4A1-S', 'M4A4', 'Desert Eagle', 'USP-S', '★']
 MINIMUM_PRICE = 1000  # Minimum price of skins (in cents)
 MAXIMUM_PRICE = 50000  # Maximum price of skins (in cents)
-MINIMUM_DISCOUNT = 24  # Minium percent discount from Steam Market price
-REQUEST_INTERVAL = 24  # Interval (in seconds) to request skin listings
-REQUEST_CHECKPOINT = 75  # Number of requests before user is updated
-REQUEST_LIMIT = 20  # Number of listings to API request (after initial)
+MINIMUM_DISCOUNT = 23.5  # Minium percent discount from Steam Market price
+REQUEST_INTERVAL = 30  # Interval (in seconds) to request skin listings
 AUCTION_REQUEST_INTERVAL = 50  # Interval to check auctions (in minutes)
 AUCTION_REQUEST_HOURS = 1  # Hours to check out for auction listings
+REQUEST_CHECKPOINT = 30  # Number of requests before user is updated
+REQUEST_LIMIT = 49  # Number of listings to API request (after initial)
 WELL_WORNS = False  # Include well-worn skins
 SOUVENIRS = False  # Include souvenir skins
 RECIPIENT_EMAILS = ['jackfarrell860@gmail.com']  # Emails to send updates to
+BASE_API_URL = 'https://csfloat.com/api/v1/listings?'
 
 interested_listings = []  # Track the sessions listings the bot finds
 # Track the floats of interested listings (to catch relistings)
@@ -46,6 +44,7 @@ def main() -> None:
         while True:
             schedule.run_pending()
             time.sleep(1)
+    # Handle program close
     except KeyboardInterrupt:
         exit_handler()
         print('\nGoodbye!')
@@ -69,52 +68,22 @@ def request_listings() -> None:
                f"is {session_information['Deals']}")
     # Get listing data
     session = create_session()
-    base_url = 'https://csfloat.com/api/v1/listings?type=buy_now'
+    # base_url = 'https://csfloat.com/api/v1/listings?type=buy_now'
     # Don't include request limit on first request
     if session_information['Requests'] != 1:
-        variable_url = (f'&min_price={MINIMUM_PRICE}'
+        variable_url = (f'type=buy_now&min_price={MINIMUM_PRICE}'
                         f'&max_price={MAXIMUM_PRICE}&sort_by=most_recent'
                         f'&limit={REQUEST_LIMIT}')
     else:
-        variable_url = (f'&min_price={MINIMUM_PRICE}'
+        variable_url = (f'type=buy_now&min_price={MINIMUM_PRICE}'
                         f'&max_price={MAXIMUM_PRICE}&sort_by=most_recent')
-    url = base_url + variable_url
+    url = BASE_API_URL + variable_url
     response = session.get(url)
     listings = response.json()
     # Filter listings
     for listing in listings:
-        # Assume listing is not a deal and does not fit skin requirements
-        deal = False
-        fits_skin_reqs = False
-        listing_price = listing.get('price')  # Price on CSfloat
-        item = listing.get('item')
-        item_price = item['scm'].get('price')  # Price on Steam
-        item_name = item['market_hash_name']
-        # If discounted from Steam, check if deal
-        if item_price > listing_price:
-            # Calculate discount %
-            difference = (1 - (listing_price / item_price)) * 100
-            # Set to deal if discount % is high enough
-            if difference > MINIMUM_DISCOUNT:
-                deal = True
-        # Filter guns by desired guns
-        for allowed_gun in ALLOWED_GUNS:
-            if allowed_gun in item_name:
-                fits_skin_reqs = True
-        # Filter out any well-worns or souvenirs if requested
-        if fits_skin_reqs:
-            well_worn = item['wear_name'] == 'Well-Worn'
-            souvenir = item['is_souvenir'] == 'true'
-            # Filter well-worn skins
-            if WELL_WORNS is False:
-                if well_worn:
-                    fits_skin_reqs = False
-            # Filter souvenir skins
-            if SOUVENIRS is False:
-                if souvenir:
-                    fits_skin_reqs = False
-        # Add to interested listings if all reqs are met
-        if fits_skin_reqs and deal:
+        is_interesting_listing = check_is_interesting_listing(listing)
+        if is_interesting_listing:
             listing_float = listing['item']['float_value']
             if listing_float not in interested_listings_floats:
                 interested_listings_floats.append(listing_float)
@@ -148,57 +117,47 @@ def request_listings() -> None:
 
 
 def request_auctions(hours: int = AUCTION_REQUEST_HOURS) -> None:
-    """Check auction listings"""
-    expiring_auctions = []
+    """Check auction listings."""
+    interested_auctions = []
     # Get listing data
-    session = create_session()
-    url = ('https://csfloat.com/api/v1/listings?type=auction'
-           '&sort_by=expires_soon')
-    response = session.get(url)
-    listings = response.json()
+    expiring_auctions = []
+    page = 0
+    end_of_auctions = False
+    # Determine how many pages of listings we need
+    while end_of_auctions is False:
+        # Get one page of listings at a time
+        url = ('https://csfloat.com/api/v1/listings?type=auction'
+               f'&sort_by=expires_soon'
+               f'&max_price={MAXIMUM_PRICE}&page={page}')
+        session = create_session()
+        response = session.get(url)
+        page_listings = response.json()
+        # Add to global listings
+        for listing in page_listings:
+            expiring_auctions.append(listing)
+        # Check if this is the last necessary page
+        last_listing_expires_at = (page_listings[-1]
+                                   ['auction_details']['expires_at'])
+        is_soon = check_is_in_timeframe(
+            last_listing_expires_at, AUCTION_REQUEST_HOURS)
+        if is_soon is False:
+            end_of_auctions = True
+        else:
+            page += 1
     # Filter listings
-    for listing in listings:
-        # Check if listing expires within given timeframe
+    for listing in expiring_auctions:
+        # Stop looking once past given timeframe
         expires_at = listing['auction_details']['expires_at']
-        expires_at = datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%S.%fZ")
-        latest_auction = expires_at
-        current_time = datetime.utcnow()
-        difference = expires_at - current_time
-        if difference.total_seconds() > (hours * 3600):
+        expires_soon = check_is_in_timeframe(expires_at,
+                                             AUCTION_REQUEST_HOURS)
+        if expires_soon is False:
             break
-        # Assume listing is not a deal and does not fit skin requirements
-        deal = False
-        fits_skin_reqs = False
-        listing_price = listing.get('price')  # Price on CSfloat
-        item = listing.get('item')
-        item_price = item['scm'].get('price')  # Price on Steam
-        item_name = item['market_hash_name']
-        if item_price > listing_price:
-            # Calculate discount %
-            difference = (1 - (listing_price / item_price)) * 100
-            # Set to deal if discount % is high enough
-            if difference > MINIMUM_DISCOUNT:
-                deal = True
-        # Filter guns by desired guns
-        for allowed_gun in ALLOWED_GUNS:
-            if allowed_gun in item_name:
-                fits_skin_reqs = True
-        # Filter out any well-worns or souvenirs if requested
-        if fits_skin_reqs:
-            well_worn = item['wear_name'] == 'Well-Worn'
-            souvenir = item['is_souvenir'] == 'true'
-            # Filter well-worn skins
-            if WELL_WORNS is False:
-                if well_worn:
-                    fits_skin_reqs = False
-            # Filter souvenir skins
-            if SOUVENIRS is False:
-                if souvenir:
-                    fits_skin_reqs = False
-            if fits_skin_reqs and deal:
-                expiring_auctions.append(listing)
-    if len(expiring_auctions) > 0:
-        email_info = get_auction_email_info(expiring_auctions)
+        is_interesting_listing = check_is_interesting_listing(listing)
+        if is_interesting_listing:
+            interested_auctions.append(listing)
+    # Update if new auctions were found
+    if len(interested_auctions) > 0:
+        email_info = get_auction_email_info(interested_auctions)
         # Send the email
         subject = email_info['subject']
         body = email_info['body']
@@ -207,9 +166,48 @@ def request_auctions(hours: int = AUCTION_REQUEST_HOURS) -> None:
     return
 
 
+def check_is_interesting_listing(listing):
+    """Check if a listing fits the given parameters."""
+    # Assume listing is not a deal and does not fit skin requirements
+    is_deal = False
+    fits_skin_reqs = False
+    listing_price = listing.get('price')  # Price on CSfloat
+    item = listing.get('item')
+    item_price = item['scm'].get('price')  # Price on Steam
+    item_name = item['market_hash_name']
+    # If discounted from Steam, check if deal
+    if item_price > listing_price:
+        # Calculate discount %
+        difference = (1 - (listing_price / item_price)) * 100
+        # Set to deal if discount % is high enough
+        if difference > MINIMUM_DISCOUNT:
+            is_deal = True
+    if is_deal:
+        # Check if desired skin
+        for allowed_gun in ALLOWED_GUNS:
+            if allowed_gun in item_name:
+                fits_skin_reqs = True
+        if fits_skin_reqs:
+            if WELL_WORNS is False:
+                well_worn = item['wear_name'] == 'Well-Worn'
+                if well_worn:
+                    fits_skin_reqs = False
+            if SOUVENIRS is False:
+                souvenir = item['is_souvenir'] == 'true'
+                if souvenir:
+                    fits_skin_reqs = False
+    # Add to interested listings if all reqs are met
+    if fits_skin_reqs and is_deal:
+        return True
+    else:
+        return False
+
+
 def exit_handler():
+    """Give user option to check auctions while the bot is off."""
     check_offline_auctions = input(
-        '\nDo you want me to check upcoming auctions while you are away? (yes,no): ')
+        '\nDo you want me to check upcoming'
+        'auctions while you are away? (yes, no): ')
     if check_offline_auctions.lower() == "yes":
         hours = input('\nHow many hours will you be away?: ')
         request_auctions(int(hours))
