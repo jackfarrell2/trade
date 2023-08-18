@@ -161,6 +161,7 @@ def request_auctions(hours: int = AUCTION_REQUEST_HOURS) -> None:
         # Check if listing expires within given timeframe
         expires_at = listing['auction_details']['expires_at']
         expires_at = datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+        latest_auction = expires_at
         current_time = datetime.utcnow()
         difference = expires_at - current_time
         if difference.total_seconds() > (hours * 3600):
