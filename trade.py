@@ -48,7 +48,7 @@ def main() -> None:
             time.sleep(1)
     except KeyboardInterrupt:
         exit_handler()
-        print('Goodbye!')
+        print('\nGoodbye!')
 
 
 def request_listings() -> None:
@@ -208,9 +208,9 @@ def request_auctions(hours: int = AUCTION_REQUEST_HOURS) -> None:
 
 def exit_handler():
     check_offline_auctions = input(
-        'Do you want me to check upcoming auctions while you are away? (yes,no): ')
+        '\nDo you want me to check upcoming auctions while you are away? (yes,no): ')
     if check_offline_auctions.lower() == "yes":
-        hours = input('How many hours will you be away?: ')
+        hours = input('\nHow many hours will you be away?: ')
         request_auctions(int(hours))
     return
 
