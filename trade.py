@@ -8,7 +8,8 @@ from datetime import datetime
 from helpers import create_session, get_single_email_info, \
     get_multiple_email_info, printf, send_email, get_auction_email_info
 
-# Change auction interval to minutes
+# Change auction to query for multiple pages if necessary
+# Clean up functions, create helpers
 
 # Settings
 # Guns to search for (★ = knives & guns)
@@ -35,7 +36,7 @@ session_information = {'Requests': 0, 'Deals': 0}
 def main() -> None:
     """Request CSfloat API at a given interval."""
     try:
-        "You can press CTRL + C at any point to close the program."
+        print("You can press CTRL + C at any point to close the program.")
         schedule.every(REQUEST_INTERVAL).seconds.do(request_listings)
         schedule.every(AUCTION_REQUEST_INTERVAL).minutes.do(request_auctions)
         # Send initial request
