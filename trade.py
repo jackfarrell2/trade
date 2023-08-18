@@ -12,7 +12,7 @@ from helpers import create_session, get_single_email_info, \
 ALLOWED_GUNS = ['AWP', 'AK-47', 'M4A1-S', 'M4A4', 'USP-S', '★']
 MINIMUM_PRICE = 1000  # Minimum price of skins (in cents)
 MAXIMUM_PRICE = 50000  # Maximum price of skins (in cents)
-MINIMUM_DISCOUNT = 24  # Minium percent discount from Steam Market price
+MINIMUM_DISCOUNT = 1  # Minium percent discount from Steam Market price
 REQUEST_INTERVAL = 31  # Interval (in seconds) to request skin listings
 REQUEST_CHECKPOINT = 100  # Number of requests before user is updated
 REQUEST_LIMIT = 20  # Number of listings to API request (after initial)
@@ -21,7 +21,8 @@ SOUVENIRS = False  # Include souvenir skins
 RECIPIENT_EMAILS = ['jackfarrell860@gmail.com']  # Emails to send updates to
 
 interested_listings = []  # Track the sessions listings the bot finds
-interested_listings_ids = []  # Track just the ids of the interested listings
+# Track the floats of interested listings (to avoid catching relistings)
+interested_listings_floats = []
 # Give the user periodic updates on the session
 session_information = {'Requests': 0, 'Deals': 0}
 
@@ -100,9 +101,9 @@ def request_listings() -> None:
                     fits_skin_reqs = False
         # Add to interested listings if all reqs are met
         if fits_skin_reqs and deal:
-            listing_id = listing.get('id')
-            if listing_id not in interested_listings_ids:
-                interested_listings_ids.append(listing_id)
+            listing_float = listing['item']['float_value']
+            if listing_float not in interested_listings_floats:
+                interested_listings_floats.append(listing_float)
                 interested_listings.append(listing)
     # Check if a new email is necessary
     new_listings_count = len(interested_listings) - initial_interest_count
