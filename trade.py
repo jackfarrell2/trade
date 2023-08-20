@@ -13,7 +13,7 @@ from helpers import create_session, get_single_email_info, \
 
 # Maximum price of skins (in cents)
 if len(sys.argv) == 2:
-    MAXIMUM_PRICE = int(sys.argv[1])
+    MAXIMUM_PRICE = (100 * int(sys.argv[1]))
 else:
     MAXIMUM_PRICE = 75000
 
