@@ -4,20 +4,27 @@ __version__ = '1.0.1'
 
 import schedule
 import time
+import sys
 from helpers import create_session, get_single_email_info, \
     get_multiple_email_info, printf, send_email, get_auction_email_info, \
     check_is_in_timeframe
 
 # Settings
+
+# Maximum price of skins (in cents)
+if len(sys.argv) == 2:
+    MAXIMUM_PRICE = int(sys.argv[1])
+else:
+    MAXIMUM_PRICE = 75000
+
 # Guns to search for (★ = knives & guns)
 ALLOWED_GUNS = ['AWP', 'AK-47', 'M4A1-S', 'M4A4', 'Desert Eagle', 'USP-S', '★']
 MINIMUM_PRICE = 1000  # Minimum price of skins (in cents)
-MAXIMUM_PRICE = 75000  # Maximum price of skins (in cents)
-MINIMUM_DISCOUNT = 23.5  # Minium percent discount from Steam Market price
+MINIMUM_DISCOUNT = 22  # Minium percent discount from Steam Market price
 REQUEST_INTERVAL = 30  # Interval (in seconds) to request skin listings
 AUCTION_REQUEST_INTERVAL = 50  # Interval to check auctions (in minutes)
 AUCTION_REQUEST_HOURS = 1  # Hours to check out for auction listings
-REQUEST_CHECKPOINT = 30  # Number of requests before user is updated
+REQUEST_CHECKPOINT = 1  # Number of requests before user is updated
 REQUEST_LIMIT = 49  # Number of listings to API request (after initial)
 WELL_WORNS = False  # Include well-worn skins
 SOUVENIRS = False  # Include souvenir skins
