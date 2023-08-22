@@ -15,21 +15,25 @@ from helpers import create_session, get_single_email_info, \
 if len(sys.argv) == 2:
     MAXIMUM_PRICE = (100 * int(sys.argv[1]))
 else:
-    MAXIMUM_PRICE = 75000
+    # Default $500
+    MAXIMUM_PRICE = 50000
 
 # Guns to search for (★ = knives & guns)
 ALLOWED_GUNS = ['AWP', 'AK-47', 'M4A1-S', 'M4A4', 'Desert Eagle', 'USP-S', '★']
 MINIMUM_PRICE = 1000  # Minimum price of skins (in cents)
-MINIMUM_DISCOUNT = 22  # Minium percent discount from Steam Market price
-REQUEST_INTERVAL = 30  # Interval (in seconds) to request skin listings
+MINIMUM_DISCOUNT = 22.5  # Minium percent discount from Steam Market price
+REQUEST_INTERVAL = 20  # Interval (in seconds) to request skin listings
 AUCTION_REQUEST_INTERVAL = 50  # Interval to check auctions (in minutes)
 AUCTION_REQUEST_HOURS = 1  # Hours to check out for auction listings
-REQUEST_CHECKPOINT = 1  # Number of requests before user is updated
+REQUEST_CHECKPOINT_MINS = 15  # How many minutes should the user receive update
+# Calc number of requests before user is updated
+REQUEST_CHECKPOINT = round((REQUEST_CHECKPOINT_MINS * 60) / REQUEST_INTERVAL)
 REQUEST_LIMIT = 49  # Number of listings to API request (after initial)
 WELL_WORNS = False  # Include well-worn skins
 SOUVENIRS = False  # Include souvenir skins
 RECIPIENT_EMAILS = ['jackfarrell860@gmail.com']  # Emails to send updates to
 BASE_API_URL = 'https://csfloat.com/api/v1/listings?'
+TIMEOUT_INTERVAL = 10  # How long to pause requests from 429 error (minutes)
 
 interested_listings = []  # Track the sessions listings the bot finds
 # Track the floats of interested listings (to catch relistings)
@@ -66,13 +70,6 @@ def request_listings() -> None:
         print('Listening for deals...')
     # Update counts of requests this session
     session_information['Requests'] += 1
-    # Print periodic updates to user
-    # Check if this is a checkpoint
-    checkpoint = session_information['Requests'] % REQUEST_CHECKPOINT == 0
-    if checkpoint and session_information['Requests'] != 1:
-        printf(f"{REQUEST_CHECKPOINT} requests completed. Total number of "
-               "potential deals identified so far "
-               f"is {session_information['Deals']}")
     # Get listing data
     session = create_session()
     # base_url = 'https://csfloat.com/api/v1/listings?type=buy_now'
@@ -87,6 +84,18 @@ def request_listings() -> None:
     url = BASE_API_URL + variable_url
     response = session.get(url)
     listings = response.json()
+    # Ensure good response
+    response_code = response.status_code
+    if response_code != 200:
+        print(f'Too many requests. Sleeping for {TIMEOUT_INTERVAL} minutes.')
+        time.sleep((TIMEOUT_INTERVAL * 60) + 5)
+        return
+    # Check if this is a checkpoint
+    checkpoint = session_information['Requests'] % REQUEST_CHECKPOINT == 0
+    if checkpoint and session_information['Requests'] != 1:
+        printf(f"{REQUEST_CHECKPOINT} requests completed. Total number of "
+               "potential deals identified so far "
+               f"is {session_information['Deals']}")
     # Filter listings
     for listing in listings:
         is_interesting_listing = check_is_interesting_listing(listing)
@@ -138,6 +147,14 @@ def request_auctions(hours: int = AUCTION_REQUEST_HOURS) -> None:
                f'&max_price={MAXIMUM_PRICE}&page={page}')
         session = create_session()
         response = session.get(url)
+        # Ensure good response
+        response_code = response.status_code
+        if response_code != 200:
+            print(
+                'Too many requests. Sleeping for '
+                f'{TIMEOUT_INTERVAL} minutes.')
+            time.sleep((TIMEOUT_INTERVAL * 60) + 5)
+            return
         page_listings = response.json()
         # Add to global listings
         for listing in page_listings:
@@ -178,6 +195,7 @@ def check_is_interesting_listing(listing):
     # Assume listing is not a deal and does not fit skin requirements
     is_deal = False
     fits_skin_reqs = False
+    # Check if string !!
     listing_price = listing.get('price')  # Price on CSfloat
     item = listing.get('item')
     item_price = item['scm'].get('price')  # Price on Steam
