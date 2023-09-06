@@ -21,7 +21,7 @@ else:
 # Guns to search for (★ = knives & guns)
 ALLOWED_GUNS = ['AWP', 'AK-47', 'M4A1-S', 'M4A4', 'Desert Eagle', 'USP-S', '★']
 MINIMUM_PRICE = 1000  # Minimum price of skins (in cents)
-MINIMUM_DISCOUNT = 22.5  # Minium percent discount from Steam Market price
+MINIMUM_DISCOUNT = 21  # Minium percent discount from Steam Market price
 REQUEST_INTERVAL = 25  # Interval (in seconds) to request skin listings
 AUCTION_REQUEST_INTERVAL = 50  # Interval to check auctions (in minutes)
 AUCTION_REQUEST_HOURS = 1  # Hours to check out for auction listings
