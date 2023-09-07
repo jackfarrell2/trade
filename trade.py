@@ -29,8 +29,8 @@ REQUEST_CHECKPOINT_MINS = 15  # How many minutes should the user receive update
 # Calc number of requests before user is updated
 REQUEST_CHECKPOINT = round((REQUEST_CHECKPOINT_MINS * 60) / REQUEST_INTERVAL)
 REQUEST_LIMIT = 49  # Number of listings to API request (after initial)
-WELL_WORNS = False  # Include well-worn skins
-SOUVENIRS = False  # Include souvenir skins
+WELL_WORNS = True  # Include well-worn skins
+SOUVENIRS = True  # Include souvenir skins
 RECIPIENT_EMAILS = ['jackfarrell860@gmail.com']  # Emails to send updates to
 BASE_API_URL = 'https://csfloat.com/api/v1/listings?'
 TIMEOUT_INTERVAL = 10  # How long to pause requests from 429 error (minutes)
