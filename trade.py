@@ -20,8 +20,8 @@ else:
 
 # Guns to search for (★ = knives & guns)
 ALLOWED_GUNS = ['AWP', 'AK-47', 'M4A1-S', 'M4A4', 'Desert Eagle', 'USP-S', '★']
-MINIMUM_PRICE = 1000  # Minimum price of skins (in cents)
-MINIMUM_DISCOUNT = 21  # Minium percent discount from Steam Market price
+MINIMUM_PRICE = 10000  # Minimum price of skins (in cents)
+MINIMUM_DISCOUNT = 2  # Minium percent discount from Steam Market price
 REQUEST_INTERVAL = 25  # Interval (in seconds) to request skin listings
 AUCTION_REQUEST_INTERVAL = 50  # Interval to check auctions (in minutes)
 AUCTION_REQUEST_HOURS = 1  # Hours to check out for auction listings
@@ -72,7 +72,6 @@ def request_listings() -> None:
     session_information['Requests'] += 1
     # Get listing data
     session = create_session()
-    # base_url = 'https://csfloat.com/api/v1/listings?type=buy_now'
     # Don't include request limit on first request
     if session_information['Requests'] != 1:
         variable_url = (f'type=buy_now&min_price={MINIMUM_PRICE}'
@@ -194,18 +193,24 @@ def check_is_interesting_listing(listing):
     """Check if a listing fits the given parameters."""
     # Assume listing is not a deal and does not fit skin requirements
     is_deal = False
+    has_bargain = False
     fits_skin_reqs = False
-    # Check if string !!
     listing_price = listing.get('price')  # Price on CSfloat
     item = listing.get('item')
-    item_price = item['scm'].get('price')  # Price on Steam
+    base_price = listing['reference'].get(
+        'base_price')  # Base price according to CSfloat
     item_name = item['market_hash_name']
-    # If discounted from Steam, check if deal
-    if item_price > listing_price:
+    # Check if bargainable
+    try:
+        bargainable = listing['min_offer_price']
+    except:
+        return False
+    # If discounted, check if deal
+    if base_price > listing_price:
         # Calculate discount %
-        difference = (1 - (listing_price / item_price)) * 100
+        difference = (1 - (listing_price / base_price)) * 100
         # Set to deal if discount % is high enough
-        if difference > MINIMUM_DISCOUNT and item_price > MINIMUM_PRICE:
+        if difference > MINIMUM_DISCOUNT and base_price > MINIMUM_PRICE:
             is_deal = True
     if is_deal:
         # Check if desired skin
