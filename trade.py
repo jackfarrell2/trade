@@ -127,6 +127,8 @@ def request_listings() -> None:
     # Send the email
     subject = email_info['subject']
     body = email_info['body']
+    if 'ö' in body or 'ö' in subject:
+        body = body.replace('ö', 'o')
     send_email(subject, body, RECIPIENT_EMAILS)
     return
 
