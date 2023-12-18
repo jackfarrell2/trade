@@ -16,7 +16,7 @@ Welcome to the Trade app! This program periodically checks csfloat.com for new d
 
 ## Customize Parameters
 
-Alter the settings at the top of trade.py file to tailor the skins to your liking. Notable, you can alter the allowed guns array to specify the skins you wish to search for as well as the maximium and minimum price to include.
+Alter the settings at the top of trade.py file to tailor the skins to your liking. Most notably, you should alter the allowed guns array to specify the skins you wish to search for as well as the maximium and minimum price to include.
 
 Alter the RECIPIENT_EMAILS array to choose who to send the emails to.
 
